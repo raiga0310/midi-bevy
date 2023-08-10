@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 pub mod game;
 pub mod key_event;
+pub mod sound;
 pub mod start_menu;
 
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, States)]

@@ -1,10 +1,9 @@
+use super::{super::debug::DebugState, key_event::KeyInputState};
+use crate::state::{key_event, AppState};
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
 };
-
-use super::{super::debug::DebugState, key_event::KeyInputState};
-use crate::state::AppState;
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -16,9 +15,9 @@ impl Plugin for GamePlugin {
                 Update,
                 (
                     highlight_keys,
-                    spawn_music_notes,
+                    /*spawn_music_notes,
                     animate_music_notes,
-                    clear_music_notes,
+                    clear_music_notes,*/
                 ),
             )
             .add_systems(Update, debug_sync_camera)
@@ -30,7 +29,13 @@ impl Plugin for GamePlugin {
 pub struct PianoKey(usize, PianoKeyType);
 
 #[derive(Component)]
-pub struct PianoKeyId(usize);
+pub struct PianoKeyId(pub usize);
+
+#[derive(Event)]
+pub struct PianoKeyInputEvent {
+    pub key_id: usize,
+    pub key_state: ButtonState,
+}
 
 #[derive(Component, PartialEq)]
 pub enum PianoKeyType {
@@ -110,11 +115,11 @@ pub struct PianoNote(usize);
 pub struct PianoNoteEvent(KeyboardInput);
 
 pub fn spawn_music_notes(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<StandardMaterial>>,
+    mut _commands: Commands,
+    mut _meshes: ResMut<Assets<StandardMaterial>>,
     mut key_events: EventReader<KeyboardInput>,
-    piano_keys: Query<(&Transform, &PianoKeyId), With<PianoKey>>,
-    key_state: Res<KeyInputState>,
+    _piano_keys: Query<(&Transform, &PianoKeyId), With<PianoKey>>,
+    _key_state: Res<KeyInputState>,
 ) {
     if key_events.is_empty() {
         return;
@@ -161,10 +166,10 @@ pub fn clear_music_notes(
 
 pub fn highlight_keys(
     mut key_events: EventReader<KeyboardInput>,
-    key_state: Res<KeyInputState>,
     key_entityies: Query<(Entity, &PianoKeyId, &PianoKeyType), With<PianoKey>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut key_materials: Query<&mut Handle<StandardMaterial>>,
+    mut note_events: EventWriter<PianoKeyInputEvent>,
 ) {
     const KEBOARD_MAPPING: [KeyCode; 18] = [
         KeyCode::Q,
@@ -194,14 +199,16 @@ pub fn highlight_keys(
         for (entity, key_id_component, key_type) in &key_entityies {
             let PianoKeyId(key_id) = key_id_component;
             if key.key_code == Some(KEBOARD_MAPPING[*key_id]) {
-                println!("key id: {}", key_id);
-
                 if let Ok(handle) = key_materials.get_mut(entity) {
                     if let Some(material) = materials.get_mut(&handle) {
                         let color: Color;
                         match key.state {
                             ButtonState::Pressed => {
                                 color = Color::BLUE;
+                                note_events.send(PianoKeyInputEvent {
+                                    key_id: *key_id,
+                                    key_state: ButtonState::Pressed,
+                                });
                             }
                             ButtonState::Released => {
                                 color = if key_type == &PianoKeyType::Black {
@@ -209,6 +216,10 @@ pub fn highlight_keys(
                                 } else {
                                     Color::WHITE
                                 };
+                                note_events.send(PianoKeyInputEvent {
+                                    key_id: *key_id,
+                                    key_state: ButtonState::Released,
+                                });
                             }
                         };
                         material.base_color = color;
